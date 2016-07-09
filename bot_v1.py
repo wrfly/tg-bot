@@ -27,9 +27,6 @@ while 1:
 	}
 	r = requests.get(URL+METHOD_NAME, proxies=proxies, data=update)
 	j = json.loads(r.content)
-	# print r.content
-	# print offset
-	# print '#####',j['result'][-1]['message']['chat']['id']
 
 	chat_id = j['result'][-1]['message']['chat']['id']
 
