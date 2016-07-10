@@ -5,7 +5,7 @@ import threading
 
 class bot():
 	def __init__(self, ):
-		self.TOKEN = '666'
+		self.TOKEN = 'YOURTOKEN'
 		self.proxies = {
 		  "http": "socks5://127.0.0.1:1080",
 		  "https": "socks5://127.0.0.1:1080"
