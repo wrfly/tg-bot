@@ -19,95 +19,148 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 logger = logging.getLogger(__name__)
 
-PHOTO, WORDS, TAGS, WRITE = range(4)
+START, PHOTO, WORDS, TAGS, WRITE = range(5)
 
 post = dict()
+
 user_photo = 'user_photo.jpg'
 
+CHOICE = ['Photo', 'Words', 'Both']
+DEFAULT_KEYBOARD = [["/new", "/cancel"], CHOICE]
+COMMON_TAGS = ["碎碎念", "日记", "胡言乱语", "语录", "随想"]
+TAGS_KEYBOARD = [COMMON_TAGS, ["/skip", "/cancel", "done"]]
+
 def prepare():
-    post = dict()
+    post.clear()
     try:
         os.remove(user_photo)
     except Exception as e:
         pass
 
-def end():
-    pass
+def end(update):
+    update.message.reply_text('Bye~~',
+        reply_markup=ReplyKeyboardMarkup(DEFAULT_KEYBOARD, one_time_keyboard=False))
+
 
 def write(update):
     logger.info("content: %s; tags: %s; photo: %s",
         post.get("words"), post.get("tags"), post.get("photo"))
-    update.message.reply_text('done')
-    tags = None
-    if post.get("tags"):
-        tags = []
-        for tag in post.get("tags").split(" "):
-            tags.append(tag)
-    b = blog.blog(post.get("words"), tags, image=post.get("photo"))
+    update.message.reply_text('Write done.', reply_markup=ReplyKeyboardRemove())
+    b = blog.blog(post.get("words"), post.get("tags"), image=post.get("photo"))
     b.write_post()
-    end()
+    # b.print_post()
+    end(update)
     return ConversationHandler.END
 
 
-def start(bot, update):
+def new_post(bot, update):
     prepare()
-    update.message.reply_text("Send me a photo or /cancel or /skip")
+    update.message.reply_text('What can I do for you, my lord?',
+        reply_markup=ReplyKeyboardMarkup(DEFAULT_KEYBOARD, one_time_keyboard=True))
+
+    return START
+
+
+def start(bot, update):
+    logger.info("start")
+    choice = update.message.text
+    if choice not in DEFAULT_KEYBOARD[1]:
+        update.message.reply_text("Sorry my lord, I don't understand...")
+        end(update)
+        return ConversationHandler.END
+
+    logger.info("user choice %s", choice)
+    if choice == "Words":
+        post["type"] = "words"
+        logger.info("get into words")
+        update.message.reply_text('Please send me some words.')
+        return WORDS
+
+    if choice == "Photo":
+        post["type"] = "photo"
+    else:
+        post["type"] = "both"
+
+    logger.info("here is photo")
     post["photo"] = False
+    update.message.reply_text("Send me a photo.")
     return PHOTO
 
 def photo(bot, update):
-    user = update.message.from_user
     photo_file = bot.get_file(update.message.photo[-1].file_id)
     photo_file.download(user_photo)
     post["photo"] = user_photo
-    logger.info("Photo of %s: %s", user.first_name, user_photo)
-    update.message.reply_text('Gorgeous! Now, send me some words, '
-                              'or send /skip if you don\'t want to.')
+    logger.info("Got photo: %s", user_photo)
+    if post["type"] == "both":
+        logger.info("get into words")
+        update.message.reply_text('Please send me some words.')
+        return WORDS
 
-    return WORDS
+    logger.info("come into tags")
+    update.message.reply_text('Any tags?',
+        reply_markup=ReplyKeyboardMarkup(TAGS_KEYBOARD, one_time_keyboard=False))
+
+    return TAGS
 
 
 def skip_photo(bot, update):
-    user = update.message.from_user
-    logger.info("User %s did not send a photo.", user.first_name)
-    update.message.reply_text('I bet you look great! Now, send me some words, '
-                              'or send /skip.')
+    logger.info("skip photo")
+    if post["type"] == "both":
+        logger.info("get into words")
+        update.message.reply_text('Please send me some words.')
+        return WORDS
+    
 
-    return WORDS
+    logger.info("come into tags")
+    update.message.reply_text('Any tags?',
+        reply_markup=ReplyKeyboardMarkup(TAGS_KEYBOARD, one_time_keyboard=False))
 
+    return TAGS
 
 def words(bot, update):
     user = update.message.from_user
-    logger.info("words of %s: %s", user.first_name, update.message.text)
-    post["words"] = update.message.text
-    update.message.reply_text('tags or /skip')
+    got_words = update.message.text
+    logger.info("words of %s: %s", user.first_name, got_words)
+    post["words"] = got_words
+
+    logger.info("come into tags")
+    update.message.reply_text('Any tags?',
+        reply_markup=ReplyKeyboardMarkup(TAGS_KEYBOARD, one_time_keyboard=False))
+
     return TAGS
 
 def skip_words(bot, update):
-    user = update.message.from_user
-    logger.info("skip words")
-    update.message.reply_text('tags or /skip')
+    logger.info("come into tags")
+    update.message.reply_text('Any tags?',
+        reply_markup=ReplyKeyboardMarkup(TAGS_KEYBOARD, one_time_keyboard=False))
+
     return TAGS
 
 def tags(bot, update):
-    user = update.message.from_user
-    logger.info("Tags of %s: %s", user.first_name, update.message.text)
-    post["tags"] = update.message.text
-    update.message.reply_text('now write to new post')
+    if not post.get("tags"):
+        post["tags"] = []
+
+    tag = update.message.text
+    if tag != "done":
+        if tag not in post["tags"]:
+            logger.info("get new tag %s", tag)
+            update.message.reply_text("Got tag " + tag)
+            post["tags"].append(tag)
+        else:
+            update.message.reply_text("Already have " + tag)
+        return TAGS
+
+    update.message.reply_text('Tags: {}'.format(post["tags"]))
     return write(update)
 
 def skip_tags(bot, update):
-    user = update.message.from_user
-    logger.info("User %s did not send a tag.", user.first_name)
-    update.message.reply_text('skip tags and write to new post.')
+    update.message.reply_text('Skip tags. As you wish.')
     return write(update)
 
 def cancel(bot, update):
     user = update.message.from_user
     logger.info("User %s canceled the conversation.", user.first_name)
-    update.message.reply_text('Bye! I hope we can talk again some day.',
-                              reply_markup=ReplyKeyboardRemove())
-    end()
+    end(update)
     return ConversationHandler.END
 
 
@@ -125,9 +178,11 @@ def main():
 
     # Add conversation handler with the states GENDER, PHOTO, LOCATION and BIO
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('new', start)],
+        entry_points=[CommandHandler('new', new_post)],
 
         states={
+            START: [MessageHandler(Filters.text, start)],
+
             PHOTO: [MessageHandler(Filters.photo, photo),
                     CommandHandler('skip', skip_photo)],
 
@@ -147,7 +202,7 @@ def main():
     dp.add_error_handler(error)
 
     # Start the Bot
-    updater.start_polling()
+    updater.start_polling(timeout=60)
 
     # Run the bot until you press Ctrl-C or the process receives SIGINT,
     # SIGTERM or SIGABRT. This should be used most of the time, since

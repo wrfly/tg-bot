@@ -25,7 +25,7 @@ class blog():
         if tags:
             self.tags = tags
         else:
-            self.tags = ["碎碎念"]
+            self.tags = ["无题"]
         self.date = date
         self.post = ""
         if title:
@@ -41,16 +41,17 @@ date: {}
 tags: {}
 ---
 {}"""
-        self.content = self.content
-        self.content = self.content.replace("\n\n", "#N#")
-        self.content = self.content.replace("\n", "<br />")
-        self.content = self.content.replace("#N#", "\n\n")
+        if not self.content:
+            self.content = ""
         if self.image:
             new_path = os.path.join(IMG_DIR, self.date+".jpg")
             copyfile(self.image, new_path)
             img_path = "/img/"+self.date+".jpg"
             self.content = "![{}]({})\n\n".format(self.date, img_path) \
                 + self.content
+        self.content = self.content.replace("\n\n", "#N#")
+        self.content = self.content.replace("\n", "<br />")
+        self.content = self.content.replace("#N#", "\n\n")
         self.post = template.format(self.title, self.date,
             self.tags,
             # str(self.tags).decode('string_escape'),
