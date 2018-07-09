@@ -55,9 +55,7 @@ def write(update):
 
 def new_post(bot, update):
     prepare()
-    update.message.reply_text('What can I do for you, my lord?',
-        reply_markup=ReplyKeyboardMarkup(DEFAULT_KEYBOARD, one_time_keyboard=True))
-
+    update.message.reply_text('What can I do for you, my lord?')
     return START
 
 
